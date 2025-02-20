@@ -1,5 +1,6 @@
 import pygame
 import random
+import time
 
 # Initialize Pygame
 pygame.init()
@@ -107,6 +108,12 @@ class BlackjackGame:
         self.edge_info = ""
         self.recommended_action = ""
 
+        # Add auto-play related properties
+        self.is_auto_playing = False
+        self.auto_play_rounds = 0  # Total rounds remaining
+        self.last_auto_play_time = 0
+        self.auto_play_delay = 500  # milliseconds between actions
+
         # Initialize buttons
         self.buttons = [
             Button("Hit", 800, 600, 100, 50, self.hit, False),
@@ -116,8 +123,60 @@ class BlackjackGame:
             Button("+10", 50, 600, 80, 40, lambda: self.place_bet(10)),
             Button("+50", 140, 600, 80, 40, lambda: self.place_bet(50)),
             Button("+100", 230, 600, 80, 40, lambda: self.place_bet(100)),
-            Button("Clear", 320, 600, 80, 40, self.clear_bet)
+            Button("Clear", 320, 600, 80, 40, self.clear_bet),
+            Button("Auto Play 10", 50, 660, 150, 50, self.start_auto_play)
         ]
+
+    def start_auto_play(self):
+        """Start or add to the auto-play sequence."""
+        if self.game_over:
+            self.is_auto_playing = True
+            self.auto_play_rounds += 10  # Add 10 more rounds
+            if self.last_auto_play_time == 0:  # Start the auto-play if not already running
+                self.last_auto_play_time = pygame.time.get_ticks()
+
+    def handle_auto_play(self):
+        """Handle auto-play logic."""
+        if not self.is_auto_playing or self.auto_play_rounds <= 0:
+            return
+
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_auto_play_time < self.auto_play_delay:
+            return
+
+        self.last_auto_play_time = current_time
+
+        if self.game_over:
+            # Start new round
+            self.clear_bet()
+            bet_amount = max(1, self.chips // 10)
+            if bet_amount > self.chips:
+                bet_amount = self.chips
+            if bet_amount == 0:
+                self.is_auto_playing = False
+                self.auto_play_rounds = 0
+                return
+            self.place_bet(bet_amount)
+            self.start_round()
+        else:
+            # Process player's turn
+            if "Split" in self.recommended_action:
+                self.hit()  # Fallback for unsupported split
+            elif self.recommended_action == "Double":
+                if len(self.player_hand) == 2 and self.chips >= self.current_bet:
+                    self.double()
+                else:
+                    self.hit()  # Fallback if can't double
+            elif self.recommended_action == "Hit":
+                self.hit()
+            elif self.recommended_action == "Stand":
+                self.stand()
+
+            # Check if round completed
+            if self.game_over:
+                self.auto_play_rounds -= 1
+                if self.auto_play_rounds <= 0:
+                    self.is_auto_playing = False
 
     def place_bet(self, amount):
         """Place a bet if the player has enough chips."""
@@ -279,6 +338,11 @@ class BlackjackGame:
         """Draw the game interface."""
         screen.fill(GREEN)
 
+        # Draw auto-play status
+        if self.is_auto_playing:
+            auto_text = bold_font.render(f"Auto Plays Remaining: {self.auto_play_rounds}", True, YELLOW)
+            screen.blit(auto_text, (50, 150))
+
         # Draw chips and bet information
         chips_text = bold_font.render(f"Chips: ${self.chips}", True, GOLD)
         bet_text = bold_font.render(f"Current Bet: ${self.current_bet}", True, GOLD)
@@ -338,10 +402,12 @@ def main():
                     if btn.rect.collidepoint(pos) and btn.enabled:
                         btn.callback()
 
+        # Handle auto-play
+        game.handle_auto_play()
+
         game.draw()
         pygame.display.flip()
         clock.tick(30)
-
 
 if __name__ == "__main__":
     main()
