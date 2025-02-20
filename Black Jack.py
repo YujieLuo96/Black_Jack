@@ -286,7 +286,7 @@ class BlackjackGame:
         screen.blit(bet_text, (50, 100))
 
         # Draw edge calculator
-        edge_rect = pygame.Rect(50, 150, 300, 100)
+        edge_rect = pygame.Rect(50, 160, 300, 110)
         pygame.draw.rect(screen, BLACK, edge_rect)
         edge_title = bold_font.render("Edge Calculator", True, GOLD)
         screen.blit(edge_title, (60, 160))
